@@ -1,0 +1,1501 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NexusChat - Real-Time Multi-Room Chat</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0f5ff',
+              100: '#e0ebff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+            }
+          }
+        }
+      }
+    };
+  </script>
+
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <!-- Inter & JetBrains Mono Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+    code, pre {
+      font-family: 'JetBrains Mono', monospace;
+    }
+    /* Custom Scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(156, 163, 175, 0.3);
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(156, 163, 175, 0.5);
+    }
+    .chat-bubble-me {
+      border-bottom-right-radius: 2px;
+    }
+    .chat-bubble-other {
+      border-bottom-left-radius: 2px;
+    }
+  </style>
+</head>
+<body class="bg-slate-100 dark:bg-slate-950 text-slate-800 dark:text-slate-100 antialiased h-screen flex flex-col overflow-hidden transition-colors duration-200">
+
+  <!-- Authentication Screen (Phone + OTP Verification Flow) -->
+  <div id="authScreen" class="fixed inset-0 z-50 bg-slate-900 text-slate-100 flex items-center justify-center p-4 overflow-y-auto">
+    <!-- Animated background accents -->
+    <div class="absolute -top-32 -left-32 w-96 h-96 bg-indigo-600/20 rounded-full blur-3xl pointer-events-none"></div>
+    <div class="absolute -bottom-32 -right-32 w-96 h-96 bg-purple-600/20 rounded-full blur-3xl pointer-events-none"></div>
+
+    <div class="relative w-full max-w-md bg-slate-800/90 border border-slate-700/80 rounded-3xl p-6 sm:p-8 shadow-2xl backdrop-blur-xl transition-all">
+      
+      <!-- Brand Logo Header -->
+      <div class="text-center mb-8">
+        <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center text-white text-2xl mx-auto shadow-lg shadow-indigo-500/30 mb-3">
+          <i class="fa-solid fa-comments"></i>
+        </div>
+        <h2 class="text-2xl font-bold tracking-tight text-white">Welcome to NexusChat</h2>
+        <p class="text-xs text-slate-400 mt-1">Real-time messaging platform</p>
+      </div>
+
+      <!-- Step 1: Phone Entry Form -->
+      <div id="authStepPhone" class="space-y-5">
+        <div>
+          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Mobile Phone Number</label>
+          <div class="flex space-x-2">
+            <!-- Country Code Dropdown -->
+            <select id="authCountryCode" class="bg-slate-900 border border-slate-700 text-slate-200 text-sm rounded-xl px-3 py-3 outline-none focus:border-indigo-500 transition-colors">
+              <option value="+91">🇮🇳 +91 (IN)</option>
+              <option value="+1">🇺🇸 +1 (US)</option>
+              <option value="+44">🇬🇧 +44 (UK)</option>
+              <option value="+61">🇦🇺 +61 (AU)</option>
+              <option value="+971">🇦🇪 +971 (AE)</option>
+              <option value="+49">🇩🇪 +49 (DE)</option>
+              <option value="+81">🇯🇵 +81 (JP)</option>
+              <option value="+33">🇫🇷 +33 (FR)</option>
+              <option value="+65">🇸🇬 +65 (SG)</option>
+            </select>
+            <!-- Phone Number Input -->
+            <input type="tel" id="authPhoneNumber" max="15" placeholder="98765 43210" class="flex-1 bg-slate-900 border border-slate-700 text-slate-100 text-sm rounded-xl px-4 py-3 outline-none focus:border-indigo-500 transition-colors tracking-wider font-mono">
+          </div>
+          <p class="text-[11px] text-slate-400 mt-2 flex items-center gap-1">
+            <i class="fa-solid fa-shield-halved text-indigo-400"></i> We'll send a 6-digit SMS verification code.
+          </p>
+        </div>
+
+        <button onclick="handleSendOTP()" id="btnSendOTP" class="w-full py-3.5 px-4 bg-indigo-600 hover:bg-indigo-500 active:scale-98 text-white font-semibold text-sm rounded-xl shadow-lg shadow-indigo-600/30 transition-all flex items-center justify-center space-x-2">
+          <span>Send Verification Code</span>
+          <i class="fa-solid fa-arrow-right text-xs"></i>
+        </button>
+      </div>
+
+      <!-- Step 2: OTP Verification Form -->
+      <div id="authStepOTP" class="space-y-6 hidden">
+        <div class="text-center">
+          <p class="text-xs text-slate-400">Enter code sent to</p>
+          <div class="flex items-center justify-center space-x-2 mt-1">
+            <span id="displayAuthPhone" class="font-mono font-bold text-sm text-indigo-300">+91 9876543210</span>
+            <button onclick="gotoPhoneStep()" class="text-xs text-indigo-400 hover:text-indigo-300 underline"><i class="fa-solid fa-pen"></i></button>
+          </div>
+        </div>
+
+        <!-- 6 Digit Input Boxes -->
+        <div class="flex justify-between space-x-2" id="otpInputsContainer">
+          <input type="text" maxlength="1" pattern="\d*" inputmode="numeric" class="otp-input w-12 h-14 text-center text-xl font-bold font-mono bg-slate-900 border border-slate-700 text-slate-100 rounded-xl outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/40 transition-all" />
+          <input type="text" maxlength="1" pattern="\d*" inputmode="numeric" class="otp-input w-12 h-14 text-center text-xl font-bold font-mono bg-slate-900 border border-slate-700 text-slate-100 rounded-xl outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/40 transition-all" />
+          <input type="text" maxlength="1" pattern="\d*" inputmode="numeric" class="otp-input w-12 h-14 text-center text-xl font-bold font-mono bg-slate-900 border border-slate-700 text-slate-100 rounded-xl outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/40 transition-all" />
+          <input type="text" maxlength="1" pattern="\d*" inputmode="numeric" class="otp-input w-12 h-14 text-center text-xl font-bold font-mono bg-slate-900 border border-slate-700 text-slate-100 rounded-xl outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/40 transition-all" />
+          <input type="text" maxlength="1" pattern="\d*" inputmode="numeric" class="otp-input w-12 h-14 text-center text-xl font-bold font-mono bg-slate-900 border border-slate-700 text-slate-100 rounded-xl outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/40 transition-all" />
+          <input type="text" maxlength="1" pattern="\d*" inputmode="numeric" class="otp-input w-12 h-14 text-center text-xl font-bold font-mono bg-slate-900 border border-slate-700 text-slate-100 rounded-xl outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/40 transition-all" />
+        </div>
+
+        <!-- Verify Button & Resend Timer -->
+        <div class="space-y-3">
+          <button onclick="handleVerifyOTP()" id="btnVerifyOTP" class="w-full py-3.5 px-4 bg-emerald-600 hover:bg-emerald-500 active:scale-98 text-white font-semibold text-sm rounded-xl shadow-lg shadow-emerald-600/30 transition-all flex items-center justify-center space-x-2">
+            <i class="fa-solid fa-check-double"></i>
+            <span>Verify & Continue</span>
+          </button>
+
+          <div class="flex items-center justify-between text-xs text-slate-400 px-1 pt-1">
+            <span id="otpTimerText">Resend in <strong id="otpCountdown" class="text-indigo-400 font-mono">30</strong>s</span>
+            <button onclick="handleResendOTP()" id="btnResendOTP" disabled class="disabled:opacity-40 text-indigo-400 hover:underline font-medium">Resend Code</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 3: Profile Setup Form for New Users -->
+      <div id="authStepProfile" class="space-y-5 hidden">
+        <div class="text-center">
+          <h3 class="font-bold text-lg text-white">Complete Your Profile</h3>
+          <p class="text-xs text-slate-400">Set up your identity on NexusChat</p>
+        </div>
+
+        <div class="flex flex-col items-center">
+          <div id="authAvatarPreview" class="w-20 h-20 rounded-2xl bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center text-4xl shadow-xl mb-2">
+            🦊
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 mb-1">Display Name</label>
+          <input type="text" id="setupDisplayName" placeholder="e.g. Alex Rivers" class="w-full bg-slate-900 border border-slate-700 text-slate-100 text-sm rounded-xl px-4 py-2.5 outline-none focus:border-indigo-500">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 mb-2">Choose Avatar Emoji</label>
+          <div class="grid grid-cols-8 gap-2 text-2xl max-h-24 overflow-y-auto p-1 bg-slate-900/60 rounded-xl" id="setupEmojiContainer">
+            <!-- Populated via script -->
+          </div>
+        </div>
+
+        <button onclick="finishProfileSetup()" class="w-full py-3.5 px-4 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm rounded-xl shadow-lg shadow-indigo-600/30 transition-all">
+          Enter NexusChat Workspace
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Simulated SMS Notification Banner -->
+  <div id="simulatedSmsToast" class="fixed top-4 left-1/2 -translate-x-1/2 z-50 max-w-sm w-full px-4 hidden transition-all duration-300">
+    <div class="bg-slate-900/95 border border-indigo-500/40 text-slate-100 p-4 rounded-2xl shadow-2xl backdrop-blur-xl flex items-start space-x-3">
+      <div class="w-10 h-10 rounded-xl bg-indigo-600/30 border border-indigo-500/50 flex items-center justify-center text-indigo-400 text-xl flex-shrink-0">
+        <i class="fa-solid fa-comment-sms"></i>
+      </div>
+      <div class="flex-1 min-w-0">
+        <div class="flex justify-between items-center mb-0.5">
+          <span class="text-xs font-bold text-indigo-300 uppercase tracking-wider">Messages • Just Now</span>
+          <button onclick="hideSmsToast()" class="text-slate-400 hover:text-white text-xs"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <p class="text-xs text-slate-200">Your NexusChat verification code is: <strong id="smsOtpCode" class="text-amber-400 font-mono font-bold text-sm">123456</strong></p>
+        <button onclick="autoFillOTP()" class="mt-2 text-[11px] font-semibold bg-indigo-600 hover:bg-indigo-500 text-white px-2.5 py-1 rounded-lg transition-colors flex items-center space-x-1">
+          <i class="fa-solid fa-wand-magic-sparkles"></i>
+          <span>Auto-fill OTP</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Container -->
+  <div id="app" class="hidden flex flex-1 h-full overflow-hidden relative">
+
+    <!-- Mobile Sidebar Backdrop -->
+    <div id="sidebarBackdrop" onclick="toggleMobileSidebar()" class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-30 hidden md:hidden transition-opacity"></div>
+
+    <!-- Sidebar -->
+    <aside id="sidebar" class="w-72 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col h-full absolute md:relative z-40 transition-transform duration-300 transform -translate-x-full md:translate-x-0 shadow-xl md:shadow-none">
+      
+      <!-- App Header / Logo -->
+      <div class="h-16 px-4 flex items-center justify-between border-b border-slate-200 dark:border-slate-800 flex-shrink-0">
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/30">
+            <i class="fa-solid fa-comments text-lg"></i>
+          </div>
+          <div>
+            <h1 class="font-bold text-lg leading-none tracking-tight text-slate-900 dark:text-white">NexusChat</h1>
+            <span class="text-xs text-emerald-500 font-medium flex items-center gap-1 mt-0.5">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Connected
+            </span>
+          </div>
+        </div>
+        
+        <!-- Mobile Sidebar Close Button -->
+        <button onclick="toggleMobileSidebar()" class="md:hidden p-2 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <!-- Current User Profile Widget -->
+      <div class="p-3 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30">
+        <div class="flex items-center justify-between p-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/60 shadow-sm">
+          <div class="flex items-center space-x-3 min-w-0">
+            <div id="userAvatar" class="w-10 h-10 rounded-xl flex items-center justify-center text-xl shadow-inner flex-shrink-0 transition-transform hover:scale-105">
+              🦊
+            </div>
+            <div class="truncate">
+              <div id="userName" class="font-semibold text-sm truncate text-slate-900 dark:text-slate-100">Anonymous</div>
+              <div class="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1 mt-0.5 truncate">
+                <i class="fa-solid fa-mobile-screen-button"></i>
+                <span id="userPhoneBadge">+91 Verified</span>
+              </div>
+            </div>
+          </div>
+          <button onclick="openProfileModal()" title="Edit Profile" class="p-2 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-700/60 rounded-lg transition-colors">
+            <i class="fa-solid fa-pen-to-square text-sm"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Channels List Header -->
+      <div class="px-4 pt-4 pb-2 flex items-center justify-between text-xs font-bold text-slate-400 uppercase tracking-wider">
+        <span>Rooms & Channels</span>
+        <button onclick="openCreateRoomModal()" title="Create New Room" class="p-1 rounded text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+          <i class="fa-solid fa-plus"></i>
+        </button>
+      </div>
+
+      <!-- Channels Container -->
+      <div class="flex-1 overflow-y-auto px-2 space-y-1" id="roomsList">
+        <!-- Dynamic Rooms inserted here -->
+      </div>
+
+      <!-- Sidebar Footer Controls -->
+      <div class="p-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/50">
+        <button onclick="toggleTheme()" class="flex items-center space-x-2 px-3 py-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors">
+          <i id="themeIcon" class="fa-solid fa-moon"></i>
+          <span id="themeLabel" class="font-medium">Dark</span>
+        </button>
+
+        <button onclick="logout()" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-rose-500 hover:bg-rose-500/10 transition-colors" title="Log Out">
+          <i class="fa-solid fa-right-from-bracket"></i>
+          <span class="font-semibold">Log Out</span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Chat Workspace -->
+    <main class="flex-1 flex flex-col h-full min-w-0 bg-slate-50 dark:bg-slate-950">
+      
+      <!-- Top Chat Bar -->
+      <header class="h-16 px-4 md:px-6 border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md flex items-center justify-between z-10 flex-shrink-0">
+        <div class="flex items-center space-x-3 min-w-0">
+          <button onclick="toggleMobileSidebar()" class="md:hidden p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">
+            <i class="fa-solid fa-bars text-lg"></i>
+          </button>
+          
+          <div class="flex items-center space-x-2 truncate">
+            <span class="text-xl text-indigo-500 font-bold">#</span>
+            <h2 id="currentRoomTitle" class="font-bold text-lg text-slate-900 dark:text-white truncate">general</h2>
+            <span id="currentRoomDesc" class="hidden lg:inline-block text-xs text-slate-500 dark:text-slate-400 border-l border-slate-300 dark:border-slate-700 pl-3 ml-2 truncate">
+              General discussion lounge
+            </span>
+          </div>
+        </div>
+
+        <!-- Search & Info Bar -->
+        <div class="flex items-center space-x-2">
+          <!-- Room Search Input -->
+          <div class="relative hidden sm:block">
+            <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-xs text-slate-400"></i>
+            <input type="text" id="searchInput" oninput="filterMessages()" placeholder="Search room..." class="w-36 md:w-48 text-xs pl-8 pr-3 py-1.5 rounded-full bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-900 outline-none transition-all">
+          </div>
+
+          <!-- Active Stats Badge -->
+          <div class="px-3 py-1 rounded-full bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-100 dark:border-indigo-900 text-indigo-600 dark:text-indigo-400 text-xs font-medium flex items-center gap-1.5">
+            <i class="fa-solid fa-comments"></i>
+            <span id="msgCounter">0 msgs</span>
+          </div>
+        </div>
+      </header>
+
+      <!-- Message Feed Area -->
+      <div id="messagesContainer" class="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 relative scroll-smooth">
+        <!-- Messages will be loaded here dynamically -->
+      </div>
+
+      <!-- Jump to Bottom Floating Button -->
+      <div id="jumpBottomBtn" onclick="scrollToBottom(true)" class="absolute bottom-24 right-6 hidden z-20">
+        <button class="bg-indigo-600 hover:bg-indigo-700 text-white rounded-full p-2.5 shadow-lg flex items-center space-x-1 text-xs font-semibold transition-all transform hover:scale-105">
+          <i class="fa-solid fa-arrow-down"></i>
+          <span>New messages</span>
+        </button>
+      </div>
+
+      <!-- Message Input Bar Container -->
+      <div class="p-3 md:p-4 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex-shrink-0 relative">
+        
+        <!-- Emoji Picker Popover -->
+        <div id="emojiPicker" class="absolute bottom-20 left-4 z-50 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-3 w-72 hidden transition-all">
+          <div class="flex items-center justify-between pb-2 mb-2 border-b border-slate-100 dark:border-slate-800 text-xs font-bold text-slate-400 uppercase">
+            <span>Pick an Emoji</span>
+            <button onclick="toggleEmojiPicker()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><i class="fa-solid fa-xmark"></i></button>
+          </div>
+          <div class="grid grid-cols-6 gap-2 text-xl max-h-48 overflow-y-auto p-1" id="emojiGrid">
+            <!-- Emojis dynamically populated -->
+          </div>
+        </div>
+
+        <!-- Formatting Helper Bar -->
+        <div class="flex items-center space-x-1 pb-2 px-1 text-xs text-slate-400">
+          <button onclick="insertMarkdown('**', '**')" title="Bold" class="p-1 hover:text-slate-600 dark:hover:text-slate-200 rounded"><i class="fa-solid fa-bold"></i></button>
+          <button onclick="insertMarkdown('*', '*')" title="Italic" class="p-1 hover:text-slate-600 dark:hover:text-slate-200 rounded"><i class="fa-solid fa-italic"></i></button>
+          <button onclick="insertMarkdown('`', '`')" title="Code" class="p-1 hover:text-slate-600 dark:hover:text-slate-200 rounded"><i class="fa-solid fa-code"></i></button>
+          <button onclick="insertMarkdown('```\n', '\n```')" title="Code Block" class="p-1 hover:text-slate-600 dark:hover:text-slate-200 rounded"><i class="fa-solid fa-terminal"></i></button>
+          <button onclick="promptImageURL()" title="Insert Image Link" class="p-1 hover:text-slate-600 dark:hover:text-slate-200 rounded"><i class="fa-regular fa-image"></i></button>
+        </div>
+
+        <!-- Input Box & Buttons -->
+        <form id="messageForm" onsubmit="sendMessage(event)" class="flex items-end space-x-2">
+          <div class="flex-1 bg-slate-100 dark:bg-slate-800/90 rounded-2xl border border-transparent focus-within:border-indigo-500 focus-within:bg-white dark:focus-within:bg-slate-900 transition-all flex items-center px-3 py-1.5">
+            
+            <button type="button" onclick="toggleEmojiPicker()" class="text-slate-400 hover:text-amber-500 p-2 transition-colors">
+              <i class="fa-regular fa-face-smile text-lg"></i>
+            </button>
+
+            <textarea id="messageInput" rows="1" onkeydown="handleKeyDown(event)" placeholder="Message #general..." class="w-full bg-transparent border-0 focus:ring-0 text-sm py-2 px-2 resize-none max-h-32 outline-none text-slate-800 dark:text-slate-100 placeholder-slate-400"></textarea>
+          </div>
+
+          <button type="submit" id="sendBtn" class="w-11 h-11 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white flex items-center justify-center shadow-lg shadow-indigo-600/30 transition-transform active:scale-95 flex-shrink-0">
+            <i class="fa-solid fa-paper-plane text-sm"></i>
+          </button>
+        </form>
+      </div>
+    </main>
+  </div>
+
+  <!-- Profile Edit Modal -->
+  <div id="profileModal" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-md w-full p-6 shadow-2xl transition-all transform scale-100">
+      <div class="flex justify-between items-center pb-4 border-b border-slate-100 dark:border-slate-800">
+        <h3 class="font-bold text-lg text-slate-900 dark:text-white">Profile & Account Settings</h3>
+        <button onclick="closeProfileModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><i class="fa-solid fa-xmark text-lg"></i></button>
+      </div>
+
+      <div class="py-5 space-y-5">
+        <!-- Preview Box -->
+        <div class="flex flex-col items-center justify-center">
+          <div id="modalAvatarPreview" class="w-20 h-20 rounded-2xl flex items-center justify-center text-4xl shadow-lg mb-2">
+            🦊
+          </div>
+          <span class="text-xs text-emerald-500 font-semibold flex items-center gap-1">
+            <i class="fa-solid fa-circle-check"></i> <span id="modalVerifiedPhone">+91 Mobile Verified</span>
+          </span>
+        </div>
+
+        <!-- Display Name -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Display Name</label>
+          <input type="text" id="profileNameInput" max="25" placeholder="Enter display name..." class="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm outline-none focus:border-indigo-500">
+        </div>
+
+        <!-- Bio / Status -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Status / Bio</label>
+          <input type="text" id="profileBioInput" max="60" placeholder="e.g. Building cool apps 🚀" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm outline-none focus:border-indigo-500">
+        </div>
+
+        <!-- Emoji Selector -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2">Choose Avatar Emoji</label>
+          <div class="grid grid-cols-8 gap-2 text-2xl max-h-28 overflow-y-auto p-1 bg-slate-50 dark:bg-slate-800/50 rounded-xl" id="avatarEmojiOptions">
+            <!-- Emojis -->
+          </div>
+        </div>
+
+        <!-- Color Gradient Selector -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2">Choose Avatar Gradient</label>
+          <div class="grid grid-cols-6 gap-2" id="avatarColorOptions">
+            <!-- Gradients dynamically rendered -->
+          </div>
+        </div>
+      </div>
+
+      <div class="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+        <button onclick="logout()" class="px-4 py-2 rounded-xl text-xs font-semibold text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40">
+          <i class="fa-solid fa-right-from-bracket mr-1"></i> Log Out
+        </button>
+        <div class="flex space-x-2">
+          <button onclick="closeProfileModal()" class="px-4 py-2 rounded-xl text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800">Cancel</button>
+          <button onclick="saveProfile()" class="px-5 py-2 rounded-xl text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 shadow-lg shadow-indigo-600/30">Save Profile</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Create Room Modal -->
+  <div id="createRoomModal" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-md w-full p-6 shadow-2xl transition-all">
+      <div class="flex justify-between items-center pb-4 border-b border-slate-100 dark:border-slate-800">
+        <h3 class="font-bold text-lg text-slate-900 dark:text-white">Create New Channel</h3>
+        <button onclick="closeCreateRoomModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><i class="fa-solid fa-xmark text-lg"></i></button>
+      </div>
+
+      <form onsubmit="handleCreateRoom(event)" class="py-5 space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Room Name</label>
+          <div class="relative">
+            <span class="absolute left-3.5 top-2.5 text-indigo-500 font-bold">#</span>
+            <input type="text" id="newRoomName" required placeholder="e.g. design-ideas" class="w-full pl-8 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm outline-none focus:border-indigo-500">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Description (Optional)</label>
+          <input type="text" id="newRoomDesc" placeholder="What is this channel about?" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm outline-none focus:border-indigo-500">
+        </div>
+
+        <div class="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end space-x-2">
+          <button type="button" onclick="closeCreateRoomModal()" class="px-4 py-2 rounded-xl text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800">Cancel</button>
+          <button type="submit" class="px-5 py-2 rounded-xl text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 shadow-lg shadow-indigo-600/30">Create Room</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Insert Image URL Modal -->
+  <div id="imageModal" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-md w-full p-6 shadow-2xl transition-all">
+      <div class="flex justify-between items-center pb-4 border-b border-slate-100 dark:border-slate-800">
+        <h3 class="font-bold text-lg text-slate-900 dark:text-white">Share an Image</h3>
+        <button onclick="closeImageModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><i class="fa-solid fa-xmark text-lg"></i></button>
+      </div>
+
+      <form onsubmit="handleSendImage(event)" class="py-5 space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Image URL</label>
+          <input type="url" id="imageUrlInput" required placeholder="https://example.com/image.png" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm outline-none focus:border-indigo-500">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Caption (Optional)</label>
+          <input type="text" id="imageCaptionInput" placeholder="Add a caption..." class="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm outline-none focus:border-indigo-500">
+        </div>
+
+        <div class="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end space-x-2">
+          <button type="button" onclick="closeImageModal()" class="px-4 py-2 rounded-xl text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800">Cancel</button>
+          <button type="submit" class="px-5 py-2 rounded-xl text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 shadow-lg shadow-indigo-600/30">Send Image</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toastContainer" class="fixed top-5 right-5 z-50 flex flex-col space-y-2 pointer-events-none"></div>
+
+  <!-- Firebase Integration & Auth State -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { 
+      getAuth, 
+      signInAnonymously, 
+      signInWithCustomToken, 
+      onAuthStateChanged 
+    } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { 
+      getFirestore, 
+      collection, 
+      doc, 
+      setDoc, 
+      addDoc, 
+      updateDoc, 
+      deleteDoc, 
+      onSnapshot 
+    } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    // Application State Variables
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'nexus-chat-app';
+    const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+      apiKey: "demo-api-key",
+      authDomain: "demo.firebaseapp.com",
+      projectId: "demo-project",
+      storageBucket: "demo.appspot.com",
+      messagingSenderId: "123456789",
+      appId: "1:123456789:web:abcdef"
+    };
+    const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+    let app, db, auth;
+    let currentUser = null;
+    let currentUserId = 'local-' + Math.floor(100000 + Math.random() * 900000);
+    let activeRoomId = 'general';
+    let allMessages = [];
+    let allRooms = [];
+    let soundEnabled = true;
+    let isUserNearBottom = true;
+
+    // Default Emojis and Colors for User Profile
+    const AVATAR_EMOJIS = ["🦊", "🚀", "👾", "🎨", "⚡", "👑", "🎧", "🌟", "🔥", "🐱", "🤖", "🦄", "🐼", "🎮", "☕", "🌈"];
+    const EMOJI_PICKER_LIST = ["😀","😂","😍","🔥","🚀","👍","❤️","🎉","🙌","😎","💡","✨","💩","🤖","🥳","💯","🤩","🙈","👀","💬","⚡","🎯","🍕","☕"];
+    const AVATAR_COLORS = [
+      'from-indigo-500 to-purple-600',
+      'from-blue-500 to-cyan-500',
+      'from-emerald-400 to-teal-600',
+      'from-amber-500 to-rose-500',
+      'from-pink-500 to-rose-600',
+      'from-orange-500 to-red-600'
+    ];
+
+    // Default channels fallback
+    const DEFAULT_ROOMS = [
+      { id: 'general', name: 'general', description: 'General community hangout space', isDefault: true },
+      { id: 'tech', name: 'tech-talk', description: 'Code, frameworks, hardware & dev banter', isDefault: true },
+      { id: 'random', name: 'random', description: 'Memes, casual fun, coffee breaks', isDefault: true },
+      { id: 'design', name: 'design-corner', description: 'UI/UX visual inspiration', isDefault: true }
+    ];
+
+    // User Profile Object with Mobile Auth
+    let userProfile = {
+      phone: '',
+      name: '',
+      bio: 'Hey there! I am using NexusChat.',
+      emoji: AVATAR_EMOJIS[Math.floor(Math.random() * AVATAR_EMOJIS.length)],
+      color: AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)]
+    };
+
+    // OTP Auth Flow State
+    let authState = {
+      phoneFull: '',
+      otpCode: '',
+      countdown: 30,
+      timerId: null
+    };
+
+    // Load saved user profile & session
+    try {
+      const savedSession = localStorage.getItem('nexus_user_session');
+      if (savedSession) {
+        const parsed = JSON.parse(savedSession);
+        if (parsed && parsed.phone) {
+          userProfile = { ...userProfile, ...parsed };
+        }
+      }
+    } catch (e) {}
+
+    // Initialize Application
+    async function init() {
+      setupUIEvents();
+      setupOtpInputHandlers();
+      initTheme();
+      loadDefaultRooms();
+
+      // Check if session exists
+      if (userProfile.phone) {
+        showChatWorkspace();
+      } else {
+        showAuthScreen();
+      }
+
+      // Attempt Firebase initialization (falls back gracefully to local preview mode)
+      try {
+        if (firebaseConfig.apiKey && firebaseConfig.apiKey !== "demo-api-key") {
+          app = initializeApp(firebaseConfig);
+          db = getFirestore(app);
+          auth = getAuth(app);
+
+          if (initialAuthToken) {
+            try {
+              const cred = await signInWithCustomToken(auth, initialAuthToken);
+              currentUser = cred.user;
+            } catch (err) {
+              const cred = await signInAnonymously(auth);
+              currentUser = cred.user;
+            }
+          } else {
+            const cred = await signInAnonymously(auth);
+            currentUser = cred.user;
+          }
+
+          currentUserId = currentUser ? currentUser.uid : currentUserId;
+
+          onAuthStateChanged(auth, (u) => {
+            if (u) {
+              currentUser = u;
+              currentUserId = u.uid;
+            }
+          });
+
+          subscribeRooms();
+          subscribeMessages();
+        }
+      } catch (err) {
+        console.warn("Firebase init fallback mode active:", err);
+        loadDefaultRooms();
+      }
+    }
+
+    // ==================== AUTH & OTP HANDLERS ====================
+
+    window.handleSendOTP = function() {
+      const country = document.getElementById('authCountryCode').value;
+      const numberInput = document.getElementById('authPhoneNumber').value.trim().replace(/\D/g, '');
+
+      if (numberInput.length < 6) {
+        showToast("Please enter a valid mobile number (at least 6 digits)", "error");
+        return;
+      }
+
+      authState.phoneFull = `${country} ${numberInput}`;
+      authState.otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+
+      document.getElementById('displayAuthPhone').innerText = authState.phoneFull;
+      document.getElementById('smsOtpCode').innerText = authState.otpCode;
+
+      // Clear previous OTP inputs
+      document.querySelectorAll('.otp-input').forEach(inp => inp.value = '');
+
+      // Switch auth sub-views
+      document.getElementById('authStepPhone').classList.add('hidden');
+      document.getElementById('authStepOTP').classList.remove('hidden');
+
+      showSmsToast();
+      startOtpCountdown();
+
+      const firstInput = document.querySelectorAll('.otp-input')[0];
+      if (firstInput) firstInput.focus();
+    };
+
+    window.gotoPhoneStep = function() {
+      document.getElementById('authStepOTP').classList.add('hidden');
+      document.getElementById('authStepPhone').classList.remove('hidden');
+      hideSmsToast();
+      if (authState.timerId) clearInterval(authState.timerId);
+    };
+
+    window.handleResendOTP = function() {
+      authState.otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+      document.getElementById('smsOtpCode').innerText = authState.otpCode;
+      document.querySelectorAll('.otp-input').forEach(inp => inp.value = '');
+      showSmsToast();
+      startOtpCountdown();
+      showToast("New verification code sent!", "info");
+    };
+
+    function startOtpCountdown() {
+      authState.countdown = 30;
+      const timerText = document.getElementById('otpTimerText');
+      const resendBtn = document.getElementById('btnResendOTP');
+
+      timerText.innerHTML = 'Resend in <strong id="otpCountdown" class="text-indigo-400 font-mono">30</strong>s';
+      resendBtn.disabled = true;
+
+      if (authState.timerId) clearInterval(authState.timerId);
+
+      authState.timerId = setInterval(() => {
+        authState.countdown--;
+        const countEl = document.getElementById('otpCountdown');
+        if (countEl) countEl.innerText = authState.countdown;
+        if (authState.countdown <= 0) {
+          clearInterval(authState.timerId);
+          resendBtn.disabled = false;
+          timerText.innerHTML = "Didn't get code?";
+        }
+      }, 1000);
+    }
+
+    function showSmsToast() {
+      document.getElementById('simulatedSmsToast').classList.remove('hidden');
+    }
+
+    window.hideSmsToast = function() {
+      document.getElementById('simulatedSmsToast').classList.add('hidden');
+    };
+
+    window.autoFillOTP = function() {
+      const inputs = document.querySelectorAll('.otp-input');
+      const digits = authState.otpCode.split('');
+      inputs.forEach((input, i) => {
+        input.value = digits[i] || '';
+      });
+      hideSmsToast();
+      window.handleVerifyOTP();
+    };
+
+    window.handleVerifyOTP = function() {
+      const inputs = document.querySelectorAll('.otp-input');
+      let entered = '';
+      inputs.forEach(input => entered += input.value.trim());
+
+      if (entered.length < 6) {
+        showToast("Please enter the complete 6-digit OTP", "error");
+        return;
+      }
+
+      if (entered !== authState.otpCode) {
+        showToast("Invalid OTP code. Please check the SMS notification.", "error");
+        return;
+      }
+
+      // OTP Verified
+      hideSmsToast();
+      if (authState.timerId) clearInterval(authState.timerId);
+      userProfile.phone = authState.phoneFull;
+
+      const existingName = localStorage.getItem(`nexus_user_${authState.phoneFull}`);
+      if (existingName) {
+        userProfile.name = existingName;
+        completeLogin();
+      } else {
+        document.getElementById('authStepOTP').classList.add('hidden');
+        document.getElementById('authStepProfile').classList.remove('hidden');
+        document.getElementById('setupDisplayName').value = 'User_' + authState.phoneFull.slice(-4);
+        renderSetupEmojis();
+      }
+    };
+
+    window.finishProfileSetup = function() {
+      const name = document.getElementById('setupDisplayName').value.trim();
+      if (!name) {
+        showToast("Please enter a display name", "error");
+        return;
+      }
+      userProfile.name = name;
+      localStorage.setItem(`nexus_user_${authState.phoneFull}`, name);
+      completeLogin();
+    };
+
+    function completeLogin() {
+      saveSession();
+      showChatWorkspace();
+      showToast(`Welcome, ${userProfile.name}!`, "success");
+    }
+
+    function saveSession() {
+      try {
+        localStorage.setItem('nexus_user_session', JSON.stringify(userProfile));
+      } catch (e) {}
+    }
+
+    window.logout = function() {
+      localStorage.removeItem('nexus_user_session');
+      userProfile.phone = '';
+      closeProfileModal();
+      showAuthScreen();
+      showToast("Logged out successfully", "info");
+    };
+
+    function showAuthScreen() {
+      document.getElementById('authScreen').classList.remove('hidden');
+      document.getElementById('app').classList.add('hidden');
+      document.getElementById('authStepPhone').classList.remove('hidden');
+      document.getElementById('authStepOTP').classList.add('hidden');
+      document.getElementById('authStepProfile').classList.add('hidden');
+    }
+
+    function showChatWorkspace() {
+      document.getElementById('authScreen').classList.add('hidden');
+      document.getElementById('app').classList.remove('hidden');
+      renderProfileUI();
+      renderRoomsList();
+      renderMessages();
+    }
+
+    function setupOtpInputHandlers() {
+      const phoneInput = document.getElementById('authPhoneNumber');
+      if (phoneInput) {
+        phoneInput.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            window.handleSendOTP();
+          }
+        });
+      }
+
+      const inputs = document.querySelectorAll('.otp-input');
+      inputs.forEach((input, index) => {
+        input.addEventListener('input', () => {
+          input.value = input.value.replace(/\D/g, '').slice(0, 1);
+          if (input.value.length === 1 && index < inputs.length - 1) {
+            inputs[index + 1].focus();
+          }
+        });
+
+        input.addEventListener('keydown', (e) => {
+          if (e.key === 'Backspace' && !input.value && index > 0) {
+            inputs[index - 1].focus();
+          } else if (e.key === 'Enter') {
+            e.preventDefault();
+            window.handleVerifyOTP();
+          }
+        });
+
+        input.addEventListener('paste', (e) => {
+          e.preventDefault();
+          const pasteData = (e.clipboardData || window.clipboardData).getData('text').trim().replace(/\D/g, '');
+          if (pasteData.length >= 6) {
+            const digits = pasteData.slice(0, 6).split('');
+            inputs.forEach((inp, idx) => inp.value = digits[idx] || '');
+            inputs[5].focus();
+          }
+        });
+      });
+    }
+
+    function renderSetupEmojis() {
+      const container = document.getElementById('setupEmojiContainer');
+      if (!container) return;
+      container.innerHTML = AVATAR_EMOJIS.map(em => `
+        <button type="button" onclick="selectSetupEmoji('${em}')" class="p-1 rounded-lg hover:bg-slate-700 transition-transform hover:scale-110 text-center">${em}</button>
+      `).join('');
+    }
+
+    window.selectSetupEmoji = function(emoji) {
+      userProfile.emoji = emoji;
+      document.getElementById('authAvatarPreview').innerText = emoji;
+    };
+
+    // ==================== ROOMS & MESSAGES ====================
+
+    function subscribeRooms() {
+      if (!db || !currentUser) return;
+      const roomsPath = collection(db, 'artifacts', appId, 'public', 'data', 'rooms');
+
+      onSnapshot(roomsPath, (snapshot) => {
+        let rooms = [];
+        snapshot.forEach(docSnap => {
+          rooms.push({ id: docSnap.id, ...docSnap.data() });
+        });
+
+        DEFAULT_ROOMS.forEach(defRoom => {
+          if (!rooms.some(r => r.id === defRoom.id)) {
+            rooms.unshift(defRoom);
+          }
+        });
+
+        allRooms = rooms;
+        renderRoomsList();
+      }, (err) => {
+        console.warn("Rooms snapshot error, using default rooms:", err);
+        loadDefaultRooms();
+      });
+    }
+
+    function loadDefaultRooms() {
+      allRooms = [...DEFAULT_ROOMS];
+      renderRoomsList();
+    }
+
+    function renderRoomsList() {
+      const container = document.getElementById('roomsList');
+      if (!container) return;
+
+      container.innerHTML = allRooms.map(room => {
+        const isActive = room.id === activeRoomId;
+        return `
+          <button onclick="switchRoom('${room.id}')" class="w-full flex items-center justify-between px-3 py-2.5 rounded-xl font-medium text-sm transition-all ${
+            isActive 
+              ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20' 
+              : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-slate-100'
+          }">
+            <div class="flex items-center space-x-2.5 truncate">
+              <span class="${isActive ? 'text-indigo-200' : 'text-slate-400'} font-bold text-base">#</span>
+              <span class="truncate">${escapeHTML(room.name)}</span>
+            </div>
+            ${!room.isDefault && room.createdBy === currentUserId ? `
+              <span onclick="event.stopPropagation(); deleteRoom('${room.id}')" title="Delete room" class="text-xs opacity-60 hover:opacity-100 px-1 py-0.5 rounded hover:bg-red-500/20 text-red-400">
+                <i class="fa-solid fa-trash"></i>
+              </span>
+            ` : ''}
+          </button>
+        `;
+      }).join('');
+    }
+
+    window.switchRoom = function(roomId) {
+      activeRoomId = roomId;
+      const room = allRooms.find(r => r.id === roomId) || { name: roomId, description: 'Chat Room' };
+
+      document.getElementById('currentRoomTitle').innerText = room.name;
+      document.getElementById('currentRoomDesc').innerText = room.description || 'Welcome to #' + room.name;
+      document.getElementById('messageInput').placeholder = `Message #${room.name}...`;
+
+      renderRoomsList();
+      renderMessages();
+      toggleMobileSidebar(false);
+    };
+
+    let unsubscribeMessages = null;
+    function subscribeMessages() {
+      if (!db || !currentUser) return;
+      if (unsubscribeMessages) unsubscribeMessages();
+
+      const messagesPath = collection(db, 'artifacts', appId, 'public', 'data', 'messages');
+
+      unsubscribeMessages = onSnapshot(messagesPath, (snapshot) => {
+        let msgs = [];
+        snapshot.forEach(docSnap => {
+          msgs.push({ id: docSnap.id, ...docSnap.data() });
+        });
+
+        msgs.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+
+        const previousCount = allMessages.length;
+        allMessages = msgs;
+
+        if (msgs.length > previousCount && previousCount > 0) {
+          const newest = msgs[msgs.length - 1];
+          if (newest && newest.roomId === activeRoomId && newest.userId !== currentUserId) {
+            playAudioSound('receive');
+            if (!isUserNearBottom) {
+              document.getElementById('jumpBottomBtn').classList.remove('hidden');
+            }
+          }
+        }
+
+        renderMessages();
+      }, (err) => {
+        console.warn("Messages snapshot error:", err);
+      });
+    }
+
+    function renderMessages() {
+      const container = document.getElementById('messagesContainer');
+      if (!container) return;
+
+      const searchVal = (document.getElementById('searchInput')?.value || '').toLowerCase().trim();
+      let roomMsgs = allMessages.filter(m => m.roomId === activeRoomId);
+
+      if (searchVal) {
+        roomMsgs = roomMsgs.filter(m =>
+          (m.text && m.text.toLowerCase().includes(searchVal)) ||
+          (m.userName && m.userName.toLowerCase().includes(searchVal))
+        );
+      }
+
+      document.getElementById('msgCounter').innerText = `${roomMsgs.length} msgs`;
+
+      if (roomMsgs.length === 0) {
+        const roomObj = allRooms.find(r => r.id === activeRoomId);
+        const roomDisplayName = roomObj ? roomObj.name : activeRoomId;
+        container.innerHTML = `
+          <div class="h-full flex flex-col items-center justify-center text-center p-8 text-slate-400">
+            <div class="w-16 h-16 rounded-3xl bg-indigo-50 dark:bg-slate-800 text-indigo-500 flex items-center justify-center text-2xl mb-4 shadow-inner">
+              <i class="fa-solid fa-comments"></i>
+            </div>
+            <h3 class="font-bold text-lg text-slate-700 dark:text-slate-200 mb-1">Welcome to #${escapeHTML(roomDisplayName)}!</h3>
+            <p class="text-xs max-w-sm text-slate-500">This is the start of the #${escapeHTML(roomDisplayName)} channel. Say hi to start the conversation!</p>
+          </div>
+        `;
+        return;
+      }
+
+      let html = '';
+      roomMsgs.forEach((msg) => {
+        const isMe = msg.userId === currentUserId;
+        const formattedTime = formatTimestamp(msg.createdAt);
+        const formattedText = parseMarkdown(escapeHTML(msg.text || ''));
+
+        const reactionsMap = msg.reactions || {};
+        let reactionsHTML = '';
+        Object.keys(reactionsMap).forEach(emoji => {
+          const uids = reactionsMap[emoji] || [];
+          if (uids.length > 0) {
+            const hasReacted = uids.includes(currentUserId);
+            reactionsHTML += `
+              <button onclick="toggleReaction('${msg.id}', '${emoji}')" class="px-2 py-0.5 rounded-full text-xs flex items-center space-x-1 border transition-all ${
+                hasReacted
+                  ? 'bg-indigo-100 dark:bg-indigo-900/60 border-indigo-400 text-indigo-700 dark:text-indigo-300'
+                  : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-200'
+              }">
+                <span>${emoji}</span>
+                <span class="font-bold text-[10px]">${uids.length}</span>
+              </button>
+            `;
+          }
+        });
+
+        html += `
+          <div class="group flex items-start space-x-3 ${isMe ? 'flex-row-reverse space-x-reverse' : ''}">
+            <div class="w-9 h-9 rounded-xl bg-gradient-to-tr ${msg.userColor || 'from-indigo-500 to-purple-600'} flex items-center justify-center text-lg shadow-sm flex-shrink-0">
+              ${msg.userEmoji || '🦊'}
+            </div>
+
+            <div class="max-w-[80%] md:max-w-[65%] flex flex-col ${isMe ? 'items-end' : 'items-start'}">
+              <div class="flex items-center space-x-2 text-xs mb-1 px-1">
+                <span class="font-semibold text-slate-700 dark:text-slate-300">${escapeHTML(msg.userName || 'Anonymous')}</span>
+                <span class="text-[10px] text-slate-400">${formattedTime}</span>
+              </div>
+
+              <div class="relative px-4 py-2.5 rounded-2xl shadow-sm text-sm leading-relaxed break-words ${
+                isMe
+                  ? 'bg-indigo-600 text-white chat-bubble-me'
+                  : 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 border border-slate-200/70 dark:border-slate-700/60 chat-bubble-other'
+              }">
+                ${formattedText}
+
+                ${msg.imageUrl ? `
+                  <div class="mt-2 rounded-xl overflow-hidden border border-black/10">
+                    <img src="${escapeHTML(msg.imageUrl)}" alt="Attachment" class="max-h-60 w-full object-cover" onerror="this.src='https://placehold.co/400x240/1e293b/94a3b8?text=Image+Unavailable'">
+                  </div>
+                ` : ''}
+
+                ${isMe ? `
+                  <button onclick="deleteMessage('${msg.id}')" title="Delete message" class="absolute -left-7 top-2 opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500 p-1 transition-opacity">
+                    <i class="fa-solid fa-trash-can text-xs"></i>
+                  </button>
+                ` : ''}
+              </div>
+
+              <div class="flex flex-wrap gap-1 mt-1">
+                ${reactionsHTML}
+                <div class="opacity-0 group-hover:opacity-100 transition-opacity flex items-center space-x-1 pl-1">
+                  <button onclick="toggleReaction('${msg.id}', '👍')" class="text-xs text-slate-400 hover:text-indigo-500"><i class="fa-regular fa-thumbs-up"></i></button>
+                  <button onclick="toggleReaction('${msg.id}', '❤️')" class="text-xs text-slate-400 hover:text-rose-500"><i class="fa-regular fa-heart"></i></button>
+                  <button onclick="toggleReaction('${msg.id}', '🔥')" class="text-xs text-slate-400 hover:text-amber-500"><i class="fa-solid fa-fire"></i></button>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      });
+
+      container.innerHTML = html;
+
+      if (isUserNearBottom) {
+        scrollToBottom(false);
+      }
+    }
+
+    window.sendMessage = async function(e, imageUrl = null, captionText = null) {
+      if (e) e.preventDefault();
+      const input = document.getElementById('messageInput');
+      const text = captionText !== null ? captionText : input.value.trim();
+
+      if (!text && !imageUrl) return;
+
+      if (captionText === null) {
+        input.value = '';
+        input.style.height = 'auto';
+      }
+
+      playAudioSound('send');
+
+      const newMsg = {
+        roomId: activeRoomId,
+        userId: currentUserId,
+        userName: userProfile.name || 'Anonymous',
+        userEmoji: userProfile.emoji,
+        userColor: userProfile.color,
+        text: text,
+        imageUrl: imageUrl || '',
+        createdAt: Date.now(),
+        reactions: {}
+      };
+
+      if (db && currentUser) {
+        try {
+          const messagesPath = collection(db, 'artifacts', appId, 'public', 'data', 'messages');
+          await addDoc(messagesPath, newMsg);
+        } catch (err) {
+          console.error("Error sending message to Firestore:", err);
+          allMessages.push({ id: 'temp-' + Date.now(), ...newMsg });
+          renderMessages();
+        }
+      } else {
+        allMessages.push({ id: 'temp-' + Date.now(), ...newMsg });
+        renderMessages();
+      }
+
+      scrollToBottom(true);
+    };
+
+    window.toggleReaction = async function(msgId, emoji) {
+      const msg = allMessages.find(m => m.id === msgId);
+      if (!msg) return;
+
+      let reactions = msg.reactions || {};
+      let uids = reactions[emoji] || [];
+
+      if (uids.includes(currentUserId)) {
+        uids = uids.filter(id => id !== currentUserId);
+      } else {
+        uids.push(currentUserId);
+      }
+
+      reactions[emoji] = uids;
+
+      if (db && currentUser && !msgId.startsWith('temp-')) {
+        try {
+          const msgRef = doc(db, 'artifacts', appId, 'public', 'data', 'messages', msgId);
+          await updateDoc(msgRef, { reactions: reactions });
+        } catch (e) {
+          console.error("Reaction update failed:", e);
+        }
+      } else {
+        msg.reactions = reactions;
+        renderMessages();
+      }
+    };
+
+    window.deleteMessage = async function(msgId) {
+      if (db && currentUser && !msgId.startsWith('temp-')) {
+        try {
+          const msgRef = doc(db, 'artifacts', appId, 'public', 'data', 'messages', msgId);
+          await deleteDoc(msgRef);
+          showToast("Message deleted", "info");
+        } catch (e) {
+          console.error("Delete failed:", e);
+        }
+      } else {
+        allMessages = allMessages.filter(m => m.id !== msgId);
+        renderMessages();
+        showToast("Message deleted", "info");
+      }
+    };
+
+    window.handleCreateRoom = async function(e) {
+      e.preventDefault();
+      const nameInput = document.getElementById('newRoomName');
+      const descInput = document.getElementById('newRoomDesc');
+
+      const rawName = nameInput.value.trim().toLowerCase().replace(/[^a-z0-9-_]/g, '-').replace(/-+/g, '-');
+      const desc = descInput.value.trim() || 'Community channel';
+
+      if (!rawName) return;
+
+      const roomId = rawName + '-' + Math.floor(100 + Math.random() * 900);
+      const newRoom = {
+        id: roomId,
+        name: rawName,
+        description: desc,
+        isDefault: false,
+        createdBy: currentUserId,
+        createdAt: Date.now()
+      };
+
+      if (db && currentUser) {
+        try {
+          const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId);
+          await setDoc(roomRef, newRoom);
+        } catch (err) {
+          console.error("Room creation failed:", err);
+          allRooms.push(newRoom);
+        }
+      } else {
+        allRooms.push(newRoom);
+      }
+
+      nameInput.value = '';
+      descInput.value = '';
+      closeCreateRoomModal();
+      renderRoomsList();
+      window.switchRoom(roomId);
+      showToast(`Channel #${rawName} created!`, "success");
+    };
+
+    window.deleteRoom = async function(roomId) {
+      if (db && currentUser) {
+        try {
+          const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId);
+          await deleteDoc(roomRef);
+        } catch (err) {
+          console.error("Delete room failed:", err);
+        }
+      }
+      allRooms = allRooms.filter(r => r.id !== roomId);
+      if (activeRoomId === roomId) {
+        window.switchRoom('general');
+      } else {
+        renderRoomsList();
+      }
+      showToast("Channel deleted", "info");
+    };
+
+    // ==================== PROFILE & MODALS ====================
+
+    function renderProfileUI() {
+      document.getElementById('userName').innerText = userProfile.name || 'Anonymous';
+      document.getElementById('userPhoneBadge').innerText = userProfile.phone || 'Verified';
+
+      const avatarEl = document.getElementById('userAvatar');
+      avatarEl.innerText = userProfile.emoji;
+      avatarEl.className = `w-10 h-10 rounded-xl bg-gradient-to-tr ${userProfile.color} flex items-center justify-center text-xl shadow-inner flex-shrink-0 transition-transform hover:scale-105`;
+
+      const modalAvatar = document.getElementById('modalAvatarPreview');
+      if (modalAvatar) {
+        modalAvatar.innerText = userProfile.emoji;
+        modalAvatar.className = `w-20 h-20 rounded-2xl bg-gradient-to-tr ${userProfile.color} flex items-center justify-center text-4xl shadow-lg mb-2`;
+      }
+
+      const nameInput = document.getElementById('profileNameInput');
+      const bioInput = document.getElementById('profileBioInput');
+      const phoneLabel = document.getElementById('modalVerifiedPhone');
+      if (nameInput) nameInput.value = userProfile.name || '';
+      if (bioInput) bioInput.value = userProfile.bio || '';
+      if (phoneLabel) phoneLabel.innerText = `${userProfile.phone || 'Mobile'} Verified`;
+    }
+
+    window.openProfileModal = function() {
+      renderProfileUI();
+      const emojiContainer = document.getElementById('avatarEmojiOptions');
+      emojiContainer.innerHTML = AVATAR_EMOJIS.map(em => `
+        <button type="button" onclick="selectAvatarEmoji('${em}')" class="p-1 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-transform hover:scale-110 text-center">${em}</button>
+      `).join('');
+
+      const colorContainer = document.getElementById('avatarColorOptions');
+      colorContainer.innerHTML = AVATAR_COLORS.map(col => `
+        <button type="button" onclick="selectAvatarColor('${col}')" class="h-8 rounded-xl bg-gradient-to-tr ${col} border-2 ${userProfile.color === col ? 'border-slate-900 dark:border-white scale-105' : 'border-transparent'} transition-all"></button>
+      `).join('');
+
+      document.getElementById('profileModal').classList.remove('hidden');
+    };
+
+    window.closeProfileModal = function() {
+      document.getElementById('profileModal').classList.add('hidden');
+    };
+
+    window.selectAvatarEmoji = function(emoji) {
+      userProfile.emoji = emoji;
+      renderProfileUI();
+    };
+
+    window.selectAvatarColor = function(color) {
+      userProfile.color = color;
+      window.openProfileModal();
+    };
+
+    window.saveProfile = function() {
+      const name = document.getElementById('profileNameInput').value.trim();
+      const bio = document.getElementById('profileBioInput').value.trim();
+      if (name) {
+        userProfile.name = name;
+        if (userProfile.phone) {
+          localStorage.setItem(`nexus_user_${userProfile.phone}`, name);
+        }
+      }
+      if (bio) userProfile.bio = bio;
+
+      saveSession();
+      renderProfileUI();
+      renderMessages();
+      closeProfileModal();
+      showToast("Profile updated successfully!", "success");
+    };
+
+    window.openCreateRoomModal = function() {
+      document.getElementById('createRoomModal').classList.remove('hidden');
+      setTimeout(() => document.getElementById('newRoomName')?.focus(), 50);
+    };
+
+    window.closeCreateRoomModal = function() {
+      document.getElementById('createRoomModal').classList.add('hidden');
+    };
+
+    window.promptImageURL = function() {
+      document.getElementById('imageModal').classList.remove('hidden');
+      setTimeout(() => document.getElementById('imageUrlInput')?.focus(), 50);
+    };
+
+    window.closeImageModal = function() {
+      document.getElementById('imageModal').classList.add('hidden');
+    };
+
+    window.handleSendImage = function(e) {
+      e.preventDefault();
+      const url = document.getElementById('imageUrlInput').value.trim();
+      const caption = document.getElementById('imageCaptionInput').value.trim();
+      if (!url) return;
+
+      document.getElementById('imageUrlInput').value = '';
+      document.getElementById('imageCaptionInput').value = '';
+      closeImageModal();
+      window.sendMessage(null, url, caption);
+    };
+
+    // ==================== UI & UTILITY HELPERS ====================
+
+    function setupUIEvents() {
+      // Populate Emoji Picker
+      const emojiGrid = document.getElementById('emojiGrid');
+      if (emojiGrid) {
+        emojiGrid.innerHTML = EMOJI_PICKER_LIST.map(em => `
+          <button type="button" onclick="insertEmoji('${em}')" class="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-transform hover:scale-110">${em}</button>
+        `).join('');
+      }
+
+      // Auto-resize message textarea
+      const msgInput = document.getElementById('messageInput');
+      if (msgInput) {
+        msgInput.addEventListener('input', () => {
+          msgInput.style.height = 'auto';
+          msgInput.style.height = Math.min(msgInput.scrollHeight, 128) + 'px';
+        });
+      }
+
+      // Track scroll position for jump-to-bottom button
+      const msgContainer = document.getElementById('messagesContainer');
+      if (msgContainer) {
+        msgContainer.addEventListener('scroll', () => {
+          const threshold = 100;
+          const distanceFromBottom = msgContainer.scrollHeight - msgContainer.scrollTop - msgContainer.clientHeight;
+          isUserNearBottom = distanceFromBottom < threshold;
+          if (isUserNearBottom) {
+            document.getElementById('jumpBottomBtn').classList.add('hidden');
+          }
+        });
+      }
+    }
+
+    window.toggleMobileSidebar = function(forceState) {
+      const sidebar = document.getElementById('sidebar');
+      const backdrop = document.getElementById('sidebarBackdrop');
+      const isHidden = sidebar.classList.contains('-translate-x-full');
+      const shouldOpen = typeof forceState === 'boolean' ? forceState : isHidden;
+
+      if (shouldOpen) {
+        sidebar.classList.remove('-translate-x-full');
+        backdrop.classList.remove('hidden');
+      } else {
+        sidebar.classList.add('-translate-x-full');
+        backdrop.classList.add('hidden');
+      }
+    };
+
+    function initTheme() {
+      const savedTheme = localStorage.getItem('nexus_theme') || 'dark';
+      applyTheme(savedTheme);
+    }
+
+    window.toggleTheme = function() {
+      const isDark = document.documentElement.classList.contains('dark');
+      const nextTheme = isDark ? 'light' : 'dark';
+      localStorage.setItem('nexus_theme', nextTheme);
+      applyTheme(nextTheme);
+    };
+
+    function applyTheme(theme) {
+      const icon = document.getElementById('themeIcon');
+      const label = document.getElementById('themeLabel');
+      if (theme === 'dark') {
+        document.documentElement.classList.add('dark');
+        if (icon) icon.className = 'fa-solid fa-moon';
+        if (label) label.innerText = 'Dark';
+      } else {
+        document.documentElement.classList.remove('dark');
+        if (icon) icon.className = 'fa-solid fa-sun text-amber-500';
+        if (label) label.innerText = 'Light';
+      }
+    }
+
+    window.filterMessages = function() {
+      renderMessages();
+    };
+
+    window.scrollToBottom = function(smooth = true) {
+      const container = document.getElementById('messagesContainer');
+      if (!container) return;
+      container.scrollTo({
+        top: container.scrollHeight,
+        behavior: smooth ? 'smooth' : 'auto'
+      });
+      document.getElementById('jumpBottomBtn').classList.add('hidden');
+    };
+
+    window.toggleEmojiPicker = function() {
+      document.getElementById('emojiPicker').classList.toggle('hidden');
+    };
+
+    window.insertEmoji = function(emoji) {
+      const input = document.getElementById('messageInput');
+      input.value += emoji;
+      input.focus();
+      document.getElementById('emojiPicker').classList.add('hidden');
+    };
+
+    window.insertMarkdown = function(prefix, suffix) {
+      const input = document.getElementById('messageInput');
+      const start = input.selectionStart;
+      const end = input.selectionEnd;
+      const selected = input.value.substring(start, end) || 'text';
+      input.value = input.value.substring(0, start) + prefix + selected + suffix + input.value.substring(end);
+      input.focus();
+      input.setSelectionRange(start + prefix.length, start + prefix.length + selected.length);
+    };
+
+    window.handleKeyDown = function(e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        window.sendMessage(e);
+      }
+    };
+
+    function escapeHTML(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function parseMarkdown(text) {
+      return text
+        .replace(/```([\s\S]*?)```/g, '<pre class="bg-black/20 rounded-lg p-2 my-1 text-xs overflow-x-auto"><code>$1</code></pre>')
+        .replace(/`([^`]+)`/g, '<code class="bg-black/15 px-1.5 py-0.5 rounded text-xs">$1</code>')
+        .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+        .replace(/\n/g, '<br>');
+    }
+
+    function formatTimestamp(ts) {
+      if (!ts) return '';
+      const d = new Date(ts);
+      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function playAudioSound(type) {
+      if (!soundEnabled) return;
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+        const ctx = new AudioCtx();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(type === 'send' ? 520 : 680, ctx.currentTime);
+        gain.gain.setValueAtTime(0.05, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.12);
+      } catch (e) {}
+    }
+
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toastContainer');
+      if (!container) return;
+
+      const colorMap = {
+        success: 'bg-emerald-600 text-white border-emerald-500',
+        error: 'bg-rose-600 text-white border-rose-500',
+        info: 'bg-slate-800 text-slate-100 border-slate-700'
+      };
+
+      const iconMap = {
+        success: 'fa-circle-check',
+        error: 'fa-circle-exclamation',
+        info: 'fa-circle-info'
+      };
+
+      const toast = document.createElement('div');
+      toast.className = `pointer-events-auto flex items-center space-x-2.5 px-4 py-3 rounded-2xl border shadow-xl text-xs font-semibold transition-all duration-300 ${colorMap[type] || colorMap.info}`;
+      toast.innerHTML = `<i class="fa-solid ${iconMap[type] || iconMap.info}"></i><span>${escapeHTML(message)}</span>`;
+
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.classList.add('opacity-0', 'translate-y-2');
+        setTimeout(() => toast.remove(), 300);
+      }, 3000);
+    }
+
+    // Start application on load
+    window.onload = init;
+  </script>
+</body>
+</html>
